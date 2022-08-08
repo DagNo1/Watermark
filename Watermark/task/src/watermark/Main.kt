@@ -24,7 +24,7 @@ fun main() {
     val blendedImg = blendImg(img, watermarkImg, percent.toInt())
     val outPutFile = File(outputFileName)
     outPutFile.createNewFile()
-    ImageIO.write(blendedImg, outputFileName.substring(outputFileName.lastIndex - 4), outPutFile)
+    ImageIO.write(blendedImg, outputFileName.substringAfterLast('.'), outPutFile)
     println("The watermarked image ${outPutFile.path} has been created.")
 }
 fun checkCompatibility(imgFileName: String, type: String = "image", width: Int = 0, height: Int = 0) {
