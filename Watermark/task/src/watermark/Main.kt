@@ -15,13 +15,18 @@ fun main() {
     val watermarkImgFileName = readln()
     checkCompatibility(watermarkImgFileName,"watermark", img.width, img.height)
     val watermarkImg = ImageIO.read((File(watermarkImgFileName)))
+    var alphaChannel = false
+    if (watermarkImg.colorModel.numComponents == 4 && watermarkImg.transparency == 3) {
+        println("Do you want to use the watermark's Alpha channel?")
+        if (readln() == "yes") alphaChannel = true
+    }
     println("Input the watermark transparency percentage (Integer 0-100):")
     val percent = readln()
     checkPercentage(percent)
     println("Input the output image filename (jpg or png extension):")
     val outputFileName = readln()
     checkOutput(outputFileName)
-    val blendedImg = blendImg(img, watermarkImg, percent.toInt())
+    val blendedImg = blendImg(img, watermarkImg, percent.toInt(),alphaChannel)
     val outPutFile = File(outputFileName)
     outPutFile.createNewFile()
     ImageIO.write(blendedImg, outputFileName.substringAfterLast('.'), outPutFile)
@@ -43,16 +48,17 @@ fun checkOutput(fileName: String) {
     val format = fileName.substringAfterLast('.')
     if (format != "jpg" && format != "png") error("The output file extension isn't \"jpg\" or \"png\".")
 }
-fun blendImg(img: BufferedImage, watermarkImg: BufferedImage, weight: Int): BufferedImage {
+fun blendImg(img: BufferedImage, watermarkImg: BufferedImage, weight: Int, alphaChannel: Boolean): BufferedImage {
     val blendedImg = BufferedImage(img.width, img.height, BufferedImage.TYPE_INT_ARGB)
     for (x in 0 until img.width) {
         for (y in 0 until img.height) {
-            val i = Color(img.getRGB(x, y))
-            val w = Color(watermarkImg.getRGB(x, y))
+            val i = Color(img.getRGB(x, y),alphaChannel)
+            val w = Color(watermarkImg.getRGB(x, y),alphaChannel)
+            val percent = weight * if (!alphaChannel) 1 else if (w.alpha == 255) 1 else 0
             val color = Color(
-                (weight * w.red + (100 - weight) * i.red) / 100,
-                (weight * w.green + (100 - weight) * i.green) / 100,
-                (weight * w.blue + (100 - weight) * i.blue) / 100
+                (percent * w.red + (100 - percent) * i.red) / 100,
+                (percent * w.green + (100 - percent) * i.green) / 100,
+                (percent * w.blue + (100 - percent) * i.blue) / 100
             )
             blendedImg.setRGB(x, y, color.rgb)
         }
