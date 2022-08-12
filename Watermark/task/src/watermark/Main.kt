@@ -11,6 +11,8 @@ var watermarkImg = BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB)
 var weight = 0
 var condition = ""
 var backGroundColor = listOf<Int>()
+var single = false
+var start = mutableListOf(0,0)
 
 fun main() {
     println("Input the image filename:")
@@ -34,6 +36,13 @@ fun main() {
     }
     println("Input the watermark transparency percentage (Integer 0-100):")
     weight = makePercentage(readln())
+    println("Choose the position method (single, grid):")
+    single = checkPositionMethodInput(readln())
+    if (single) {
+        val diff = arrayOf(baseImg.width - watermarkImg.width, baseImg.height - watermarkImg.height)
+        println("Input the watermark position ([x 0-${diff[0]}] [y 0-${diff[1]}]):")
+        start = makePosition(readln().split(" "),diff)
+    }
     println("Input the output image filename (jpg or png extension):")
     val outputFileName = readln()
     checkOutput(outputFileName)
@@ -49,7 +58,7 @@ fun checkCompatibility(imgFileName: String, type: String = "image") {
     if (img.colorModel.numColorComponents != 3) error("The number of $type color components isn't 3.")
     if (img.colorModel.pixelSize != 24 && img.colorModel.pixelSize != 32) error("The $type isn't 24 or 32-bit.")
     if (type == "image") return // THE PART AFTER THIS ONLY CONCERNS WATERMARK IMAGES
-    if (img.width != baseImg.width || img.height != baseImg.height) error("The image and watermark dimensions are different.")
+    if (img.width > baseImg.width || img.height > baseImg.height) error("The watermark's dimensions are larger.")
 }
 fun makeRbg(text: List<String>) : List<Int> {
     val errorMsg = "The transparency color input is invalid."
@@ -66,6 +75,21 @@ fun makePercentage(percent : String): Int {
     if (percent.toInt() !in 0..100) error("The transparency percentage is out of range.")
     return percent.toInt()
 }
+fun checkPositionMethodInput(text: String): Boolean {
+    if (text != "single" && text != "grid") error("The position method input is invalid.")
+    return text == "single"
+}
+fun makePosition(text: List<String>, diff: Array<Int>): MutableList<Int> {
+    if (text.size != 2) error("The position input is invalid.")
+    val coordinate = mutableListOf<Int>()
+    try { text.forEach { coordinate.add(it.toInt())} } catch (e: Exception) {
+        error("The position input is invalid.")
+    }
+    if (coordinate[0] !in 0..diff[0] || coordinate[1] !in 0..diff[1] ) {
+        error("The position input is out of range.")
+    }
+    return coordinate
+}
 fun checkOutput(fileName: String) {
     val format = fileName.substringAfterLast('.')
     if (format != "jpg" && format != "png") error("The output file extension isn't \"jpg\" or \"png\".")
@@ -76,9 +100,22 @@ fun blendImg(): BufferedImage {
     val blendedImg = BufferedImage(baseImg.width, baseImg.height, BufferedImage.TYPE_INT_ARGB)
     for (x in 0 until baseImg.width) {
         for (y in 0 until baseImg.height) {
-            val i = Color(baseImg.getRGB(x, y),alphaChannel)
-            val w = Color(watermarkImg.getRGB(x, y),alphaChannel)
-            val pixelIsBackground = transparent && w == Color(backGroundColor[0],backGroundColor[1],backGroundColor[2])
+            val i = Color(baseImg.getRGB(x, y), alphaChannel)
+            blendedImg.setRGB(x, y, Color(i.red, i.green, i.blue).rgb)
+        }
+    }
+    val end = when (single) {
+        true -> listOf(watermarkImg.width + start[0], watermarkImg.height + start[1])
+        false -> listOf(baseImg.width, baseImg.height)
+    }
+    for (x in start[0] until end[0]) {
+        for (y in start[1] until end[1]) {
+            val i = Color(baseImg.getRGB(x, y), alphaChannel)
+            val w = when (single) {
+                true -> Color(watermarkImg.getRGB(x - start[0], y - start[1]), alphaChannel)
+                false -> Color(watermarkImg.getRGB(x % watermarkImg.width, y % watermarkImg.height), alphaChannel)
+            }
+            val pixelIsBackground = transparent && w == Color(backGroundColor[0], backGroundColor[1], backGroundColor[2])
             val percent = weight * if (pixelIsBackground) 0
             else if (alphaChannel && w.alpha == 255) 1
             else if (alphaChannel && w.alpha == 0) 0 else 1
